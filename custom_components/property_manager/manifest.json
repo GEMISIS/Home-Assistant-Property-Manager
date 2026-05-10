@@ -1,0 +1,12 @@
+{
+  "domain": "property_manager",
+  "name": "Property Manager",
+  "codeowners": ["@gemisis"],
+  "config_flow": true,
+  "documentation": "https://github.com/gemisis/ha-property-manager",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/gemisis/ha-property-manager/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

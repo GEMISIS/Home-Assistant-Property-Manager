@@ -1,0 +1,132 @@
+add_asset:
+  name: Add Asset
+  description: Add a new asset to the property map.
+  fields:
+    name:
+      name: Name
+      description: The name of the asset.
+      required: true
+      selector:
+        text:
+    type:
+      name: Type
+      description: The asset type (e.g., wasp_trap, sprinkler_head).
+      selector:
+        text:
+    category:
+      name: Category
+      description: The asset category.
+      default: custom
+      selector:
+        select:
+          options:
+            - structures
+            - landscaping
+            - water
+            - utilities
+            - pest_control
+            - paths_access
+            - lighting
+            - recreation
+            - vehicles
+            - septic
+            - well_water
+            - hvac_mini_split
+            - hvac_ac
+            - custom
+    geometry:
+      name: Geometry
+      description: GeoJSON geometry object with type and coordinates.
+      selector:
+        object:
+    status:
+      name: Status
+      description: The asset status.
+      default: active
+      selector:
+        select:
+          options:
+            - active
+            - inactive
+            - needs_attention
+            - overdue
+
+update_asset:
+  name: Update Asset
+  description: Update an existing asset.
+  fields:
+    asset_id:
+      name: Asset ID
+      description: The ID of the asset to update.
+      required: true
+      selector:
+        text:
+
+remove_asset:
+  name: Remove Asset
+  description: Remove an asset from the property map.
+  fields:
+    asset_id:
+      name: Asset ID
+      description: The ID of the asset to remove.
+      required: true
+      selector:
+        text:
+
+add_zone:
+  name: Add Zone
+  description: Add a new zone to the property map.
+  fields:
+    name:
+      name: Name
+      description: The name of the zone.
+      required: true
+      selector:
+        text:
+    category:
+      name: Category
+      description: The zone category.
+      default: custom
+      selector:
+        select:
+          options:
+            - structures
+            - landscaping
+            - water
+            - utilities
+            - pest_control
+            - paths_access
+            - lighting
+            - recreation
+            - vehicles
+            - septic
+            - well_water
+            - hvac_mini_split
+            - hvac_ac
+            - custom
+
+update_zone:
+  name: Update Zone
+  description: Update an existing zone.
+  fields:
+    zone_id:
+      name: Zone ID
+      description: The ID of the zone to update.
+      required: true
+      selector:
+        text:
+
+remove_zone:
+  name: Remove Zone
+  description: Remove a zone from the property map.
+  fields:
+    zone_id:
+      name: Zone ID
+      description: The ID of the zone to remove.
+      required: true
+      selector:
+        text:
+
+update_property:
+  name: Update Property
+  description: Update property-level settings (name, boundary, calibration, etc.).

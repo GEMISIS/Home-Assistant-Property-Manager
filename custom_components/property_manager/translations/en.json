@@ -1,0 +1,17 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set Up Property Manager",
+        "description": "Configure your property for the interactive map.",
+        "data": {
+          "property_name": "Property Name",
+          "address": "Address (optional)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Property Manager is already configured."
+    }
+  }
+}
