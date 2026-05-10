@@ -375,7 +375,7 @@ export class AssetDetail extends LitElement {
                 ${this._getCategoryName()}
               </span>
               <span class="status-badge status-${asset.status}">
-                ${asset.status.replace("_", " ")}
+                ${asset.status.replace(/_/g, " ")}
               </span>
 
               ${asset.type

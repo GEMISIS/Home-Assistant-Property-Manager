@@ -71,12 +71,23 @@ export function renderSchematic(
   drawNorthArrow(ctx);
 }
 
+/** Resolve fill/stroke for an asset, using SCHEMATIC_FILLS when the asset type matches. */
+function resolveAssetColors(asset: Asset): { fill: string; stroke: string } {
+  const typeKey = (asset.type || "").toLowerCase();
+  if (SCHEMATIC_FILLS[typeKey]) {
+    return SCHEMATIC_FILLS[typeKey];
+  }
+  const color = CATEGORY_COLORS[asset.category] ?? "#9E9E9E";
+  return { fill: color, stroke: color };
+}
+
 function drawAsset(
   ctx: CanvasRenderingContext2D,
   asset: Asset,
   latLngToPixel: (lat: number, lng: number) => [number, number]
 ): void {
-  const color = CATEGORY_COLORS[asset.category] ?? "#9E9E9E";
+  const { fill, stroke } = resolveAssetColors(asset);
+  const color = stroke;
 
   switch (asset.geometry.type) {
     case "Point": {
@@ -130,9 +141,9 @@ function drawAsset(
         ctx.lineTo(px, py);
       }
       ctx.closePath();
-      ctx.fillStyle = hexToRgba(color, 0.3);
+      ctx.fillStyle = hexToRgba(fill, 0.4);
       ctx.fill();
-      ctx.strokeStyle = color;
+      ctx.strokeStyle = stroke;
       ctx.lineWidth = 2;
       ctx.stroke();
       break;
@@ -266,6 +277,7 @@ export function exportToSVG(
   // Assets
   for (const asset of data.assets) {
     const color = CATEGORY_COLORS[asset.category] ?? "#9E9E9E";
+
     if (asset.geometry.type === "Point") {
       const coords = asset.geometry.coordinates as [number, number];
       const [x, y] = latLngToPixel(coords[0], coords[1]);
@@ -275,6 +287,33 @@ export function exportToSVG(
       parts.push(
         `<text x="${x}" y="${y - 14}" text-anchor="middle" font-size="11" fill="#333">${escapeXml(asset.name)}</text>`
       );
+    } else if (asset.geometry.type === "LineString") {
+      const coords = asset.geometry.coordinates as [number, number][];
+      if (coords.length >= 2) {
+        const pointStr = coords
+          .map((c) => {
+            const [x, y] = latLngToPixel(c[0], c[1]);
+            return `${x},${y}`;
+          })
+          .join(" ");
+        parts.push(
+          `<polyline points="${pointStr}" fill="none" stroke="${color}" stroke-width="3"/>`
+        );
+      }
+    } else if (asset.geometry.type === "Polygon") {
+      const rings = asset.geometry.coordinates as [number, number][][];
+      const coords = rings[0];
+      if (coords && coords.length >= 3) {
+        const pointStr = coords
+          .map((c) => {
+            const [x, y] = latLngToPixel(c[0], c[1]);
+            return `${x},${y}`;
+          })
+          .join(" ");
+        parts.push(
+          `<polygon points="${pointStr}" fill="${hexToRgba(color, 0.3)}" stroke="${color}" stroke-width="2"/>`
+        );
+      }
     }
   }
 

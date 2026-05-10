@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .const import STORAGE_KEY, STORAGE_VERSION
-from .models import Asset, MaintenanceLogEntry, Photo, PropertyStore, Zone
+from .models import Asset, MaintenanceLogEntry, Photo, Property, PropertyStore, Zone
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,6 +61,7 @@ class PropertyManagerStore:
         for i, asset in enumerate(self._data.assets):
             if asset.id == asset_id:
                 merged = {**asset.to_dict(), **updates, "id": asset_id}
+                merged["updated"] = datetime.now(UTC).isoformat()
                 updated = Asset.from_dict(merged)
                 self._data.assets[i] = updated
                 await self.async_save()
@@ -163,7 +165,5 @@ class PropertyManagerStore:
     async def async_update_property(self, updates: dict[str, Any]) -> None:
         """Update property-level settings."""
         prop_dict = {**self._data.property.to_dict(), **updates}
-        from .models import Property
-
         self._data.property = Property.from_dict(prop_dict)
         await self.async_save()
