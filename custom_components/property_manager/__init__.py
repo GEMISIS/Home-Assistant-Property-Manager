@@ -37,10 +37,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Register the frontend panel
     frontend_dir = str(Path(__file__).parent / "frontend")
 
-    hass.http.register_static_path(
-        "/property_manager/frontend",
-        frontend_dir,
-        cache_headers=False,
+    from homeassistant.components.http import StaticPathConfig
+
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig("/property_manager/frontend", frontend_dir, cache_headers=False)]
     )
 
     hass.components.frontend.async_register_built_in_panel(
