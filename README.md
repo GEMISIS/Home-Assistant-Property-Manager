@@ -6,8 +6,8 @@ An interactive property map inside Home Assistant where homeowners can plot, tra
 
 > Think: architectural site plan meets smart home — a spatial layer for your home automation that ties physical location to monitoring, maintenance, and HA entity control.
 
-![Screenshots Placeholder](docs/screenshots/placeholder.png)
-<!-- TODO: Replace with actual screenshots of satellite view, schematic view, detail panel, and dashboard card -->
+<!-- TODO: Add screenshots of satellite view, schematic view, detail panel, and dashboard card -->
+> 🚧 **Screenshots coming soon** — the integration is in active development.
 
 ---
 
