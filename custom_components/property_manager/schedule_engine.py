@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from datetime import date, timedelta
-from typing import Any
 
 from .models import Asset, Schedule
 
@@ -73,10 +72,13 @@ def get_overdue_assets(assets: list[Asset], check_date: date | None = None) -> l
     overdue = []
     for asset in assets:
         for sched in asset.schedules:
-            if sched.next_due and sched.next_due < d.isoformat():
-                if is_in_season(sched, d):
-                    overdue.append(asset)
-                    break
+            if (
+                sched.next_due
+                and sched.next_due < d.isoformat()
+                and is_in_season(sched, d)
+            ):
+                overdue.append(asset)
+                break
     return overdue
 
 
@@ -89,8 +91,11 @@ def get_due_soon_assets(
     due_soon = []
     for asset in assets:
         for sched in asset.schedules:
-            if sched.next_due and d.isoformat() <= sched.next_due <= cutoff:
-                if is_in_season(sched, d):
-                    due_soon.append(asset)
-                    break
+            if (
+                sched.next_due
+                and d.isoformat() <= sched.next_due <= cutoff
+                and is_in_season(sched, d)
+            ):
+                due_soon.append(asset)
+                break
     return due_soon

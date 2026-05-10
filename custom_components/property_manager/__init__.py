@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
 from .api import async_register_api
-from .store import PropertyManagerStore
+from .const import DOMAIN
+from .coordinator import PropertyManagerCoordinator
 from .services import async_register_services
+from .store import PropertyManagerStore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,17 +26,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     store = PropertyManagerStore(hass)
     await store.async_load()
 
+    coordinator = PropertyManagerCoordinator(hass, store)
+    await coordinator.async_config_entry_first_refresh()
+
     hass.data[DOMAIN][entry.entry_id] = {
         "store": store,
+        "coordinator": coordinator,
     }
 
     # Register the frontend panel
-    panel_url = str(Path(__file__).parent / "frontend" / "property-manager-panel.js")
+    frontend_dir = str(Path(__file__).parent / "frontend")
 
-    # Check if the panel JS has been built and exists
     hass.http.register_static_path(
-        f"/property_manager/frontend",
-        str(Path(__file__).parent / "frontend"),
+        "/property_manager/frontend",
+        frontend_dir,
         cache_headers=False,
     )
 

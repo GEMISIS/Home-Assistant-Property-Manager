@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.core import HomeAssistant, ServiceCall
 
 from .const import DOMAIN
@@ -21,6 +19,8 @@ SERVICE_ADD_ZONE = "add_zone"
 SERVICE_UPDATE_ZONE = "update_zone"
 SERVICE_REMOVE_ZONE = "remove_zone"
 SERVICE_UPDATE_PROPERTY = "update_property"
+SERVICE_LOG_MAINTENANCE = "log_maintenance"
+SERVICE_ADD_PHOTO = "add_photo"
 
 
 def _get_store(hass: HomeAssistant) -> PropertyManagerStore:
@@ -78,6 +78,26 @@ async def async_register_services(hass: HomeAssistant) -> None:
         store = _get_store(hass)
         await store.async_update_property(dict(call.data))
         _LOGGER.info("Updated property settings")
+
+    async def handle_log_maintenance(call: ServiceCall) -> None:
+        store = _get_store(hass)
+        asset_id = call.data["asset_id"]
+        entry_data = {k: v for k, v in call.data.items() if k != "asset_id"}
+        result = await store.async_add_maintenance_log(asset_id, entry_data)
+        if result is None:
+            _LOGGER.warning("Asset not found for maintenance log: %s", asset_id)
+        else:
+            _LOGGER.info("Logged maintenance for asset: %s", asset_id)
+
+    async def handle_add_photo(call: ServiceCall) -> None:
+        store = _get_store(hass)
+        asset_id = call.data["asset_id"]
+        photo_data = {k: v for k, v in call.data.items() if k != "asset_id"}
+        result = await store.async_add_photo(asset_id, photo_data)
+        if result is None:
+            _LOGGER.warning("Asset not found for photo: %s", asset_id)
+        else:
+            _LOGGER.info("Added photo to asset: %s", asset_id)
 
     hass.services.async_register(
         DOMAIN,
@@ -152,4 +172,32 @@ async def async_register_services(hass: HomeAssistant) -> None:
         SERVICE_UPDATE_PROPERTY,
         handle_update_property,
         schema=vol.Schema({}, extra=vol.ALLOW_EXTRA),
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_LOG_MAINTENANCE,
+        handle_log_maintenance,
+        schema=vol.Schema(
+            {
+                vol.Required("asset_id"): str,
+                vol.Required("action"): str,
+                vol.Optional("date", default=""): str,
+                vol.Optional("notes", default=""): str,
+            }
+        ),
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_ADD_PHOTO,
+        handle_add_photo,
+        schema=vol.Schema(
+            {
+                vol.Required("asset_id"): str,
+                vol.Required("path"): str,
+                vol.Optional("caption", default=""): str,
+                vol.Optional("taken", default=""): str,
+            }
+        ),
     )

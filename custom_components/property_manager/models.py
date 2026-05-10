@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from .const import (
@@ -21,7 +21,7 @@ def _generate_id(prefix: str = "asset") -> str:
 
 def _now_iso() -> str:
     """Return current UTC time as ISO string."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 @dataclass

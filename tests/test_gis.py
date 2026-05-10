@@ -1,7 +1,6 @@
 """Tests for GIS utility functions."""
 
 import json
-import math
 
 from custom_components.property_manager.gis import (
     calibration_scale_factor,

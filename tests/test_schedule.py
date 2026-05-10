@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from custom_components.property_manager.models import Asset, Geometry, Schedule
+from custom_components.property_manager.models import Asset, Schedule
 from custom_components.property_manager.schedule_engine import (
     compute_next_due,
     get_due_soon_assets,

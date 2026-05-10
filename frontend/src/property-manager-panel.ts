@@ -10,6 +10,7 @@ import { sharedStyles, CATEGORY_COLORS } from "./styles";
 import type { PropertyStore, Asset, Zone, CategoryMap } from "./models";
 import "./map-engine";
 import "./asset-detail";
+import "./dashboard-card";
 
 // Extend the global Window to include HA types
 declare global {

@@ -130,3 +130,57 @@ remove_zone:
 update_property:
   name: Update Property
   description: Update property-level settings (name, boundary, calibration, etc.).
+
+log_maintenance:
+  name: Log Maintenance
+  description: Add a maintenance log entry to an asset.
+  fields:
+    asset_id:
+      name: Asset ID
+      description: The ID of the asset.
+      required: true
+      selector:
+        text:
+    action:
+      name: Action
+      description: What maintenance was performed.
+      required: true
+      selector:
+        text:
+    date:
+      name: Date
+      description: The date of the maintenance (ISO format). Defaults to today.
+      selector:
+        text:
+    notes:
+      name: Notes
+      description: Additional notes about the maintenance.
+      selector:
+        text:
+
+add_photo:
+  name: Add Photo
+  description: Attach a photo to an asset.
+  fields:
+    asset_id:
+      name: Asset ID
+      description: The ID of the asset.
+      required: true
+      selector:
+        text:
+    path:
+      name: Path
+      description: The path to the photo file (in HA media directory).
+      required: true
+      selector:
+        text:
+    caption:
+      name: Caption
+      description: Optional caption for the photo.
+      selector:
+        text:
+    taken:
+      name: Date Taken
+      description: When the photo was taken (ISO format).
+      selector:
+        text:

@@ -7,10 +7,41 @@
 import { LitElement, html, css, PropertyValues } from "lit";
 import { customElement, property, state, query } from "lit/decorators.js";
 import type { PropertyStore, Asset, Zone, CategoryMap } from "./models";
-import { CATEGORY_COLORS, SCHEMATIC_FILLS } from "./styles";
+import { CATEGORY_COLORS } from "./styles";
+import { renderSchematic } from "./schematic-renderer";
 
-// Leaflet types — loaded via CDN in the panel
+// Leaflet types — loaded dynamically at runtime
 declare const L: typeof import("leaflet");
+
+const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+const LEAFLET_DRAW_CSS =
+  "https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css";
+const LEAFLET_DRAW_JS =
+  "https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js";
+
+/** Load a CSS file into the document head (idempotent). */
+function loadCSS(href: string): void {
+  if (document.querySelector(`link[href="${href}"]`)) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = href;
+  document.head.appendChild(link);
+}
+
+/** Load a JS script dynamically and return a promise. */
+function loadScript(src: string): Promise<void> {
+  if (document.querySelector(`script[src="${src}"]`)) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.head.appendChild(script);
+  });
+}
 
 @customElement("pm-map-engine")
 export class MapEngine extends LitElement {
@@ -20,6 +51,7 @@ export class MapEngine extends LitElement {
   @property({ type: String }) viewMode: "satellite" | "schematic" = "satellite";
 
   @query("#map") private _mapEl!: HTMLDivElement;
+  @query("#schematic-canvas") private _canvasEl!: HTMLCanvasElement;
 
   private _map: L.Map | null = null;
   private _tileLayer: L.TileLayer | null = null;
@@ -28,23 +60,16 @@ export class MapEngine extends LitElement {
   private _boundaryLayer: L.Polygon | null = null;
   private _drawControl: any = null;
   private _drawnItems: L.FeatureGroup | null = null;
+  @state() private _leafletReady = false;
 
-  static styles = css`
-    :host {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
+  // Use light DOM so Leaflet CSS works properly
+  protected createRenderRoot() {
+    return this;
+  }
 
-    #map {
-      width: 100%;
-      height: 100%;
-    }
-  `;
-
-  protected firstUpdated(_changedProperties: PropertyValues) {
+  protected async firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
-    this._initMap();
+    await this._loadLeaflet();
   }
 
   protected updated(changedProps: PropertyValues) {
@@ -58,20 +83,34 @@ export class MapEngine extends LitElement {
     }
   }
 
+  private async _loadLeaflet(): Promise<void> {
+    try {
+      // Load CSS first
+      loadCSS(LEAFLET_CSS);
+      loadCSS(LEAFLET_DRAW_CSS);
+
+      // Load Leaflet core, then draw plugin (depends on L)
+      await loadScript(LEAFLET_JS);
+      await loadScript(LEAFLET_DRAW_JS);
+
+      this._leafletReady = true;
+      this._initMap();
+    } catch (err) {
+      console.error("Failed to load Leaflet:", err);
+    }
+  }
+
   private _initMap() {
-    // Check if Leaflet is available
     if (typeof L === "undefined") {
-      console.error(
-        "Leaflet not loaded. Ensure leaflet.js and leaflet.css are included."
-      );
+      console.error("Leaflet not available after loading scripts.");
       return;
     }
 
     const mapEl = this._mapEl;
     if (!mapEl) return;
 
-    // Default center: a reasonable default if no property boundary set
-    const defaultCenter: [number, number] = [47.6062, -122.3321]; // Seattle
+    // Default center — will be overridden if property boundary exists
+    const defaultCenter: [number, number] = [47.6062, -122.3321];
     const defaultZoom = 18;
 
     this._map = L.map(mapEl, {
@@ -108,13 +147,16 @@ export class MapEngine extends LitElement {
       });
       this._map.addControl(this._drawControl);
 
-      // Handle draw:created events
       this._map.on("draw:created" as any, (e: any) => {
         const layer = e.layer;
         this._drawnItems!.addLayer(layer);
         this._handleDrawCreated(e.layerType, layer);
       });
     }
+
+    // Listen for map moves to update the schematic overlay
+    this._map.on("moveend", () => this._renderSchematicOverlay());
+    this._map.on("zoomend", () => this._renderSchematicOverlay());
 
     // Render initial data
     this._renderData();
@@ -173,19 +215,18 @@ export class MapEngine extends LitElement {
     // Render property boundary
     const boundary = this.data.property.boundary;
     if (boundary.length > 0) {
-      this._boundaryLayer = L.polygon(
-        boundary as [number, number][],
-        {
-          color: "#333",
-          weight: 3,
-          fillColor: "#333",
-          fillOpacity: 0.05,
-          dashArray: "10, 5",
-        }
-      ).addTo(this._map);
+      this._boundaryLayer = L.polygon(boundary as [number, number][], {
+        color: "#333",
+        weight: 3,
+        fillColor: "#333",
+        fillOpacity: 0.05,
+        dashArray: "10, 5",
+      }).addTo(this._map);
 
       // Fit map to boundary
-      this._map.fitBounds(this._boundaryLayer.getBounds(), { padding: [20, 20] });
+      this._map.fitBounds(this._boundaryLayer.getBounds(), {
+        padding: [20, 20],
+      });
     }
 
     // Render zones
@@ -197,6 +238,9 @@ export class MapEngine extends LitElement {
     for (const asset of this.data.assets) {
       this._renderAsset(asset);
     }
+
+    // Update schematic overlay if in schematic mode
+    this._renderSchematicOverlay();
   }
 
   private _renderAsset(asset: Asset) {
@@ -227,7 +271,9 @@ export class MapEngine extends LitElement {
         break;
       }
       case "Polygon": {
-        const coords = (asset.geometry.coordinates as [number, number][][])[0];
+        const coords = (
+          asset.geometry.coordinates as [number, number][][]
+        )[0];
         layer = L.polygon(coords, {
           fillColor: color,
           fillOpacity: 0.3,
@@ -240,10 +286,8 @@ export class MapEngine extends LitElement {
         return;
     }
 
-    // Tooltip
     layer.bindTooltip(asset.name, { direction: "top", offset: [0, -10] });
 
-    // Click handler
     layer.on("click", () => {
       this.dispatchEvent(
         new CustomEvent("asset-select", {
@@ -281,15 +325,64 @@ export class MapEngine extends LitElement {
     if (!this._map) return;
 
     if (this.viewMode === "satellite") {
+      // Show tile layer, hide canvas overlay
       if (this._tileLayer && !this._map.hasLayer(this._tileLayer)) {
         this._tileLayer.addTo(this._map);
       }
+      // Show Leaflet vector layers
+      this._assetLayers.forEach((layer) => {
+        if (!this._map!.hasLayer(layer)) layer.addTo(this._map!);
+      });
+      this._zoneLayers.forEach((layer) => {
+        if (!this._map!.hasLayer(layer)) layer.addTo(this._map!);
+      });
+      if (this._boundaryLayer && !this._map.hasLayer(this._boundaryLayer)) {
+        this._boundaryLayer.addTo(this._map);
+      }
+      // Hide canvas
+      if (this._canvasEl) this._canvasEl.style.display = "none";
     } else {
-      // Schematic mode: remove satellite tiles for a clean canvas look
+      // Schematic mode: remove satellite tiles, hide vector layers, show canvas
       if (this._tileLayer && this._map.hasLayer(this._tileLayer)) {
         this._map.removeLayer(this._tileLayer);
       }
+      // Hide Leaflet vector layers (schematic draws its own)
+      this._assetLayers.forEach((layer) => {
+        if (this._map!.hasLayer(layer)) this._map!.removeLayer(layer);
+      });
+      this._zoneLayers.forEach((layer) => {
+        if (this._map!.hasLayer(layer)) this._map!.removeLayer(layer);
+      });
+      if (this._boundaryLayer && this._map.hasLayer(this._boundaryLayer)) {
+        this._map.removeLayer(this._boundaryLayer);
+      }
+      // Show and render canvas
+      if (this._canvasEl) this._canvasEl.style.display = "block";
+      this._renderSchematicOverlay();
     }
+  }
+
+  private _renderSchematicOverlay(): void {
+    if (this.viewMode !== "schematic" || !this._map || !this.data) return;
+
+    const canvas = this._canvasEl;
+    if (!canvas) return;
+
+    const size = this._map.getSize();
+    canvas.style.display = "block";
+
+    const map = this._map;
+    const latLngToPixel = (lat: number, lng: number): [number, number] => {
+      const pt = map.latLngToContainerPoint([lat, lng]);
+      return [pt.x, pt.y];
+    };
+
+    renderSchematic(this.data, {
+      canvas,
+      width: size.x,
+      height: size.y,
+      latLngToPixel,
+    });
   }
 
   disconnectedCallback() {
@@ -300,30 +393,45 @@ export class MapEngine extends LitElement {
     }
   }
 
-  // Use light DOM so Leaflet CSS works properly
-  protected createRenderRoot() {
-    return this;
-  }
-
   render() {
+    if (!this._leafletReady) {
+      return html`
+        <style>
+          .map-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            color: #757575;
+            font-size: 16px;
+          }
+        </style>
+        <div class="map-loading">Loading map...</div>
+      `;
+    }
+
     return html`
-      <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      />
-      <link
-        rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"
-      />
-      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
       <style>
         #map {
           width: 100%;
           height: 100%;
+          position: relative;
+        }
+        #schematic-canvas {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+          z-index: 400;
+          display: none;
         }
       </style>
-      <div id="map"></div>
+      <div id="map">
+        <canvas id="schematic-canvas"></canvas>
+      </div>
     `;
   }
 }

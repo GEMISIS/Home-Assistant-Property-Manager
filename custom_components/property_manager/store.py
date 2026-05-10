@@ -8,8 +8,8 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from .const import DOMAIN, STORAGE_KEY, STORAGE_VERSION
-from .models import Asset, PropertyStore, Zone
+from .const import STORAGE_KEY, STORAGE_VERSION
+from .models import Asset, MaintenanceLogEntry, Photo, PropertyStore, Zone
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -90,6 +90,17 @@ class PropertyManagerStore:
 
     # --- Zone CRUD ---
 
+    def get_zone(self, zone_id: str) -> Zone | None:
+        """Get a single zone by ID."""
+        for zone in self._data.zones:
+            if zone.id == zone_id:
+                return zone
+        return None
+
+    def get_zones(self) -> list[Zone]:
+        """Get all zones."""
+        return list(self._data.zones)
+
     async def async_add_zone(self, zone_data: dict[str, Any]) -> Zone:
         """Add a new zone."""
         zone = Zone.from_dict(zone_data)
@@ -118,6 +129,34 @@ class PropertyManagerStore:
                 await self.async_save()
                 return True
         return False
+
+    # --- Maintenance Log ---
+
+    async def async_add_maintenance_log(
+        self, asset_id: str, entry_data: dict[str, Any]
+    ) -> MaintenanceLogEntry | None:
+        """Add a maintenance log entry to an asset."""
+        for asset in self._data.assets:
+            if asset.id == asset_id:
+                entry = MaintenanceLogEntry.from_dict(entry_data)
+                asset.maintenance_log.append(entry)
+                await self.async_save()
+                return entry
+        return None
+
+    # --- Photos ---
+
+    async def async_add_photo(
+        self, asset_id: str, photo_data: dict[str, Any]
+    ) -> Photo | None:
+        """Add a photo to an asset."""
+        for asset in self._data.assets:
+            if asset.id == asset_id:
+                photo = Photo.from_dict(photo_data)
+                asset.photos.append(photo)
+                await self.async_save()
+                return photo
+        return None
 
     # --- Property ---
 

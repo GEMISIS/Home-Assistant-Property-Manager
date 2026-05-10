@@ -157,6 +157,8 @@ ha-property-manager/
 | `property_manager.update_zone` | Update an existing zone |
 | `property_manager.remove_zone` | Remove a zone |
 | `property_manager.update_property` | Update property settings |
+| `property_manager.log_maintenance` | Log a maintenance entry for an asset |
+| `property_manager.add_photo` | Attach a photo to an asset |
 
 ## REST API
 
@@ -165,7 +167,10 @@ ha-property-manager/
 | `/api/property_manager/data` | GET | All property data |
 | `/api/property_manager/assets` | GET, POST | List/create assets |
 | `/api/property_manager/assets/{id}` | GET, PUT, DELETE | Single asset CRUD |
+| `/api/property_manager/assets/{id}/maintenance` | GET, POST | Maintenance log entries |
+| `/api/property_manager/assets/{id}/photos` | GET, POST | Asset photos |
 | `/api/property_manager/zones` | GET, POST | List/create zones |
+| `/api/property_manager/zones/{id}` | GET, PUT, DELETE | Single zone CRUD |
 | `/api/property_manager/property` | GET, PUT | Property settings |
 | `/api/property_manager/categories` | GET | Category definitions |
 

@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import logging
-from typing import Any
 
 from aiohttp import web
-
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 
@@ -91,7 +88,7 @@ class PropertyManagerAssetView(HomeAssistantView):
 
 
 class PropertyManagerZonesView(HomeAssistantView):
-    """View for zone operations."""
+    """View for zone list/create operations."""
 
     url = "/api/property_manager/zones"
     name = "api:property_manager:zones"
@@ -107,6 +104,38 @@ class PropertyManagerZonesView(HomeAssistantView):
         data = await request.json()
         zone = await store.async_add_zone(data)
         return self.json(zone.to_dict(), status_code=201)
+
+
+class PropertyManagerZoneView(HomeAssistantView):
+    """View for single zone operations."""
+
+    url = "/api/property_manager/zones/{zone_id}"
+    name = "api:property_manager:zone"
+
+    async def get(self, request: web.Request, zone_id: str) -> web.Response:
+        hass: HomeAssistant = request.app["hass"]
+        store = _get_store(hass)
+        zone = store.get_zone(zone_id)
+        if zone is None:
+            raise web.HTTPNotFound(text=f"Zone {zone_id} not found")
+        return self.json(zone.to_dict())
+
+    async def put(self, request: web.Request, zone_id: str) -> web.Response:
+        hass: HomeAssistant = request.app["hass"]
+        store = _get_store(hass)
+        data = await request.json()
+        zone = await store.async_update_zone(zone_id, data)
+        if zone is None:
+            raise web.HTTPNotFound(text=f"Zone {zone_id} not found")
+        return self.json(zone.to_dict())
+
+    async def delete(self, request: web.Request, zone_id: str) -> web.Response:
+        hass: HomeAssistant = request.app["hass"]
+        store = _get_store(hass)
+        removed = await store.async_remove_zone(zone_id)
+        if not removed:
+            raise web.HTTPNotFound(text=f"Zone {zone_id} not found")
+        return self.json({"status": "ok"})
 
 
 class PropertyManagerPropertyView(HomeAssistantView):
@@ -140,11 +169,62 @@ class PropertyManagerCategoriesView(HomeAssistantView):
         return self.json(ASSET_CATEGORIES)
 
 
+class PropertyManagerMaintenanceLogView(HomeAssistantView):
+    """View for adding maintenance log entries to an asset."""
+
+    url = "/api/property_manager/assets/{asset_id}/maintenance"
+    name = "api:property_manager:asset:maintenance"
+
+    async def get(self, request: web.Request, asset_id: str) -> web.Response:
+        hass: HomeAssistant = request.app["hass"]
+        store = _get_store(hass)
+        asset = store.get_asset(asset_id)
+        if asset is None:
+            raise web.HTTPNotFound(text=f"Asset {asset_id} not found")
+        return self.json([m.to_dict() for m in asset.maintenance_log])
+
+    async def post(self, request: web.Request, asset_id: str) -> web.Response:
+        hass: HomeAssistant = request.app["hass"]
+        store = _get_store(hass)
+        data = await request.json()
+        entry = await store.async_add_maintenance_log(asset_id, data)
+        if entry is None:
+            raise web.HTTPNotFound(text=f"Asset {asset_id} not found")
+        return self.json(entry.to_dict(), status_code=201)
+
+
+class PropertyManagerPhotosView(HomeAssistantView):
+    """View for managing asset photos."""
+
+    url = "/api/property_manager/assets/{asset_id}/photos"
+    name = "api:property_manager:asset:photos"
+
+    async def get(self, request: web.Request, asset_id: str) -> web.Response:
+        hass: HomeAssistant = request.app["hass"]
+        store = _get_store(hass)
+        asset = store.get_asset(asset_id)
+        if asset is None:
+            raise web.HTTPNotFound(text=f"Asset {asset_id} not found")
+        return self.json([p.to_dict() for p in asset.photos])
+
+    async def post(self, request: web.Request, asset_id: str) -> web.Response:
+        hass: HomeAssistant = request.app["hass"]
+        store = _get_store(hass)
+        data = await request.json()
+        photo = await store.async_add_photo(asset_id, data)
+        if photo is None:
+            raise web.HTTPNotFound(text=f"Asset {asset_id} not found")
+        return self.json(photo.to_dict(), status_code=201)
+
+
 def async_register_api(hass: HomeAssistant) -> None:
     """Register all Property Manager API views."""
     hass.http.register_view(PropertyManagerDataView)
     hass.http.register_view(PropertyManagerAssetsView)
     hass.http.register_view(PropertyManagerAssetView)
     hass.http.register_view(PropertyManagerZonesView)
+    hass.http.register_view(PropertyManagerZoneView)
     hass.http.register_view(PropertyManagerPropertyView)
     hass.http.register_view(PropertyManagerCategoriesView)
+    hass.http.register_view(PropertyManagerMaintenanceLogView)
+    hass.http.register_view(PropertyManagerPhotosView)
