@@ -23,7 +23,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Property Manager from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
-    store = PropertyManagerStore(hass)
+    store = PropertyManagerStore(hass, entry.entry_id)
     await store.async_load()
 
     # Populate property with config entry data on first setup
@@ -42,44 +42,47 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "coordinator": coordinator,
     }
 
-    # Register the frontend panel
-    frontend_dir = str(Path(__file__).parent / "frontend")
+    # Register the frontend panel, services, and API only once
+    if not hass.data[DOMAIN].get("_initialized"):
+        frontend_dir = str(Path(__file__).parent / "frontend")
 
-    from homeassistant.components.http import StaticPathConfig
+        from homeassistant.components.http import StaticPathConfig
 
-    await hass.http.async_register_static_paths(
-        [StaticPathConfig("/property_manager/frontend", frontend_dir, cache_headers=False)]
-    )
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig("/property_manager/frontend", frontend_dir, cache_headers=False)]
+        )
 
-    from homeassistant.components.frontend import (
-        async_register_built_in_panel,
-        async_remove_panel,
-    )
+        from homeassistant.components.frontend import (
+            async_register_built_in_panel,
+            async_remove_panel,
+        )
 
-    # Remove existing panel if re-loading (prevents "Overwriting panel" error)
-    try:
-        async_remove_panel(hass, "property-manager")
-    except (ValueError, KeyError):
-        pass  # Panel doesn't exist yet, that's fine
+        # Remove existing panel if re-loading (prevents "Overwriting panel" error)
+        try:
+            async_remove_panel(hass, "property-manager")
+        except (ValueError, KeyError):
+            pass  # Panel doesn't exist yet, that's fine
 
-    async_register_built_in_panel(
-        hass,
-        component_name="custom",
-        sidebar_title="Property Map",
-        sidebar_icon="mdi:map-marker-radius",
-        frontend_url_path="property-manager",
-        config={
-            "_panel_custom": {
-                "name": "property-manager-panel",
-                "module_url": "/property_manager/frontend/property-manager-panel.js",
-            }
-        },
-        require_admin=False,
-    )
+        async_register_built_in_panel(
+            hass,
+            component_name="custom",
+            sidebar_title="Property Map",
+            sidebar_icon="mdi:map-marker-radius",
+            frontend_url_path="property-manager",
+            config={
+                "_panel_custom": {
+                    "name": "property-manager-panel",
+                    "module_url": "/property_manager/frontend/property-manager-panel.js",
+                }
+            },
+            require_admin=False,
+        )
 
-    # Register services and API
-    await async_register_services(hass)
-    async_register_api(hass)
+        # Register services and API
+        await async_register_services(hass)
+        async_register_api(hass)
+
+        hass.data[DOMAIN]["_initialized"] = True
 
     # Set up platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -92,6 +95,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
+        hass.data[DOMAIN].pop(entry.entry_id, None)
+
+        # Check if any real entries remain
+        remaining = {
+            k: v for k, v in hass.data[DOMAIN].items()
+            if not k.startswith("_")
+        }
+        if not remaining:
+            hass.data[DOMAIN].pop("_initialized", None)
 
     return unload_ok

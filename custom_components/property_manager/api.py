@@ -23,12 +23,45 @@ async def _parse_json(request: web.Request) -> dict:
         raise web.HTTPBadRequest(text=f"Invalid JSON: {err}") from err
 
 
-def _get_store(hass: HomeAssistant) -> PropertyManagerStore:
-    """Get the store from hass.data."""
-    for entry_data in hass.data.get(DOMAIN, {}).values():
-        if "store" in entry_data:
+def _get_store(hass: HomeAssistant, request: web.Request) -> PropertyManagerStore:
+    """Get the store from hass.data, using entry_id query param if provided."""
+    entry_id = request.query.get("entry_id")
+    domain_data = hass.data.get(DOMAIN, {})
+
+    if entry_id:
+        entry_data = domain_data.get(entry_id)
+        if isinstance(entry_data, dict) and "store" in entry_data:
+            return entry_data["store"]
+        raise web.HTTPNotFound(text=f"Property entry {entry_id} not found")
+
+    # Fall back to first available entry
+    for key, entry_data in domain_data.items():
+        if key.startswith("_"):
+            continue
+        if isinstance(entry_data, dict) and "store" in entry_data:
             return entry_data["store"]
     raise web.HTTPServiceUnavailable(text="Property Manager not configured")
+
+
+class PropertyManagerEntriesView(HomeAssistantView):
+    """View to list all configured property entries."""
+
+    url = "/api/property_manager/entries"
+    name = "api:property_manager:entries"
+
+    async def get(self, request: web.Request) -> web.Response:
+        hass: HomeAssistant = request.app["hass"]
+        entries = []
+        for entry_id, entry_data in hass.data.get(DOMAIN, {}).items():
+            if entry_id.startswith("_"):
+                continue
+            if isinstance(entry_data, dict) and "store" in entry_data:
+                store: PropertyManagerStore = entry_data["store"]
+                entries.append({
+                    "entry_id": entry_id,
+                    "property_name": store.data.property.name,
+                })
+        return self.json(entries)
 
 
 class PropertyManagerDataView(HomeAssistantView):
@@ -39,7 +72,7 @@ class PropertyManagerDataView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        store = _get_store(hass)
+        store = _get_store(hass, request)
         return self.json(store.data.to_dict())
 
 
@@ -51,14 +84,14 @@ class PropertyManagerAssetsView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        store = _get_store(hass)
+        store = _get_store(hass, request)
         category = request.query.get("category")
         assets = store.get_assets(category)
         return self.json([a.to_dict() for a in assets])
 
     async def post(self, request: web.Request) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        store = _get_store(hass)
+        store = _get_store(hass, request)
         data = await _parse_json(request)
         asset = await store.async_add_asset(data)
         return self.json(asset.to_dict(), status_code=201)
@@ -72,7 +105,7 @@ class PropertyManagerAssetView(HomeAssistantView):
 
     async def get(self, request: web.Request, asset_id: str) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        store = _get_store(hass)
+        store = _get_store(hass, request)
         asset = store.get_asset(asset_id)
         if asset is None:
             raise web.HTTPNotFound(text=f"Asset {asset_id} not found")
@@ -80,7 +113,7 @@ class PropertyManagerAssetView(HomeAssistantView):
 
     async def put(self, request: web.Request, asset_id: str) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        store = _get_store(hass)
+        store = _get_store(hass, request)
         data = await _parse_json(request)
         asset = await store.async_update_asset(asset_id, data)
         if asset is None:
@@ -89,7 +122,7 @@ class PropertyManagerAssetView(HomeAssistantView):
 
     async def delete(self, request: web.Request, asset_id: str) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        store = _get_store(hass)
+        store = _get_store(hass, request)
         removed = await store.async_remove_asset(asset_id)
         if not removed:
             raise web.HTTPNotFound(text=f"Asset {asset_id} not found")
@@ -104,12 +137,12 @@ class PropertyManagerZonesView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        store = _get_store(hass)
+        store = _get_store(hass, request)
         return self.json([z.to_dict() for z in store.data.zones])
 
     async def post(self, request: web.Request) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        store = _get_store(hass)
+        store = _get_store(hass, request)
         data = await _parse_json(request)
         zone = await store.async_add_zone(data)
         return self.json(zone.to_dict(), status_code=201)
@@ -123,7 +156,7 @@ class PropertyManagerZoneView(HomeAssistantView):
 
     async def get(self, request: web.Request, zone_id: str) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        store = _get_store(hass)
+        store = _get_store(hass, request)
         zone = store.get_zone(zone_id)
         if zone is None:
             raise web.HTTPNotFound(text=f"Zone {zone_id} not found")
@@ -131,7 +164,7 @@ class PropertyManagerZoneView(HomeAssistantView):
 
     async def put(self, request: web.Request, zone_id: str) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        store = _get_store(hass)
+        store = _get_store(hass, request)
         data = await _parse_json(request)
         zone = await store.async_update_zone(zone_id, data)
         if zone is None:
@@ -140,7 +173,7 @@ class PropertyManagerZoneView(HomeAssistantView):
 
     async def delete(self, request: web.Request, zone_id: str) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        store = _get_store(hass)
+        store = _get_store(hass, request)
         removed = await store.async_remove_zone(zone_id)
         if not removed:
             raise web.HTTPNotFound(text=f"Zone {zone_id} not found")
@@ -155,12 +188,12 @@ class PropertyManagerPropertyView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        store = _get_store(hass)
+        store = _get_store(hass, request)
         return self.json(store.data.property.to_dict())
 
     async def put(self, request: web.Request) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        store = _get_store(hass)
+        store = _get_store(hass, request)
         data = await _parse_json(request)
         await store.async_update_property(data)
         return self.json(store.data.property.to_dict())
@@ -186,7 +219,7 @@ class PropertyManagerMaintenanceLogView(HomeAssistantView):
 
     async def get(self, request: web.Request, asset_id: str) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        store = _get_store(hass)
+        store = _get_store(hass, request)
         asset = store.get_asset(asset_id)
         if asset is None:
             raise web.HTTPNotFound(text=f"Asset {asset_id} not found")
@@ -194,7 +227,7 @@ class PropertyManagerMaintenanceLogView(HomeAssistantView):
 
     async def post(self, request: web.Request, asset_id: str) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        store = _get_store(hass)
+        store = _get_store(hass, request)
         data = await _parse_json(request)
         entry = await store.async_add_maintenance_log(asset_id, data)
         if entry is None:
@@ -210,7 +243,7 @@ class PropertyManagerPhotosView(HomeAssistantView):
 
     async def get(self, request: web.Request, asset_id: str) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        store = _get_store(hass)
+        store = _get_store(hass, request)
         asset = store.get_asset(asset_id)
         if asset is None:
             raise web.HTTPNotFound(text=f"Asset {asset_id} not found")
@@ -218,7 +251,7 @@ class PropertyManagerPhotosView(HomeAssistantView):
 
     async def post(self, request: web.Request, asset_id: str) -> web.Response:
         hass: HomeAssistant = request.app["hass"]
-        store = _get_store(hass)
+        store = _get_store(hass, request)
         data = await _parse_json(request)
         photo = await store.async_add_photo(asset_id, data)
         if photo is None:
@@ -228,6 +261,7 @@ class PropertyManagerPhotosView(HomeAssistantView):
 
 def async_register_api(hass: HomeAssistant) -> None:
     """Register all Property Manager API views."""
+    hass.http.register_view(PropertyManagerEntriesView)
     hass.http.register_view(PropertyManagerDataView)
     hass.http.register_view(PropertyManagerAssetsView)
     hass.http.register_view(PropertyManagerAssetView)

@@ -1,4 +1,5 @@
 import resolve from "@rollup/plugin-node-resolve";
+import commonjs from "@rollup/plugin-commonjs";
 import typescript from "@rollup/plugin-typescript";
 import terser from "@rollup/plugin-terser";
 
@@ -10,9 +11,11 @@ export default {
     file: "../custom_components/property_manager/frontend/property-manager-panel.js",
     format: "es",
     sourcemap: !production,
+    inlineDynamicImports: true,
   },
   plugins: [
-    resolve(),
+    resolve({ browser: true }),
+    commonjs(),
     typescript(),
     production && terser(),
   ],

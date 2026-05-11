@@ -82,3 +82,8 @@ export interface CategoryDef {
 }
 
 export type CategoryMap = Record<string, CategoryDef>;
+
+export interface EntryInfo {
+  entry_id: string;
+  property_name: string;
+}

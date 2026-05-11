@@ -2,17 +2,16 @@
   "config": {
     "step": {
       "user": {
-        "title": "Set Up Property Manager",
-        "description": "Configure your property for the interactive map. The location defaults to your Home Assistant home zone.",
+        "title": "Add a Property",
+        "description": "Give your property a name and pick its location on the map. You can add multiple properties.",
         "data": {
           "property_name": "Property Name",
-          "address": "Street Address (optional)",
           "location": "Property Location"
         }
       }
     },
-    "abort": {
-      "already_configured": "Property Manager is already configured."
+    "error": {
+      "location_required": "A location is required. Please select a point on the map."
     }
   }
 }

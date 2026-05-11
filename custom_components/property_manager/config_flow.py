@@ -14,7 +14,7 @@ from homeassistant.helpers.selector import (
     TextSelectorType,
 )
 
-from .const import CONF_ADDRESS, CONF_PROPERTY_NAME, CONF_LATITUDE, CONF_LONGITUDE, DOMAIN
+from .const import CONF_PROPERTY_NAME, CONF_LATITUDE, CONF_LONGITUDE, DOMAIN
 
 
 class PropertyManagerConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -29,23 +29,21 @@ class PropertyManagerConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            # Only allow a single instance
-            await self.async_set_unique_id(DOMAIN)
-            self._abort_if_unique_id_configured()
-
-            # Extract location from the location selector
             location = user_input.get("location", {})
-            entry_data = {
-                CONF_PROPERTY_NAME: user_input[CONF_PROPERTY_NAME],
-                CONF_ADDRESS: user_input.get(CONF_ADDRESS, ""),
-                CONF_LATITUDE: location.get("latitude", self.hass.config.latitude),
-                CONF_LONGITUDE: location.get("longitude", self.hass.config.longitude),
-            }
+            if not location.get("latitude") or not location.get("longitude"):
+                errors["location"] = "location_required"
+                # Fall through to re-show form with errors
+            else:
+                entry_data = {
+                    CONF_PROPERTY_NAME: user_input[CONF_PROPERTY_NAME],
+                    CONF_LATITUDE: location["latitude"],
+                    CONF_LONGITUDE: location["longitude"],
+                }
 
-            return self.async_create_entry(
-                title=entry_data[CONF_PROPERTY_NAME],
-                data=entry_data,
-            )
+                return self.async_create_entry(
+                    title=entry_data[CONF_PROPERTY_NAME],
+                    data=entry_data,
+                )
 
         # Default to HA's configured home location
         default_lat = self.hass.config.latitude
@@ -58,10 +56,7 @@ class PropertyManagerConfigFlow(ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_PROPERTY_NAME, default="Home"): TextSelector(
                         TextSelectorConfig(type=TextSelectorType.TEXT)
                     ),
-                    vol.Optional(CONF_ADDRESS, default=""): TextSelector(
-                        TextSelectorConfig(type=TextSelectorType.TEXT)
-                    ),
-                    vol.Optional(
+                    vol.Required(
                         "location",
                         default={
                             "latitude": default_lat,

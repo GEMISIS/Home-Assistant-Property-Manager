@@ -4,10 +4,10 @@
  * This is the custom panel element registered with Home Assistant.
  * It hosts the Leaflet map, toolbar, and detail panel.
  */
-import { LitElement, html, css, PropertyValues } from "lit";
+import { LitElement, html, css, PropertyValues, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { sharedStyles, CATEGORY_COLORS } from "./styles";
-import type { PropertyStore, Asset, Zone, CategoryMap } from "./models";
+import type { PropertyStore, Asset, Zone, CategoryMap, EntryInfo } from "./models";
 import "./map-engine";
 import "./asset-detail";
 import "./dashboard-card";
@@ -40,6 +40,8 @@ export class PropertyManagerPanel extends LitElement {
   @state() private _selectedAsset: Asset | null = null;
   @state() private _loading = true;
   @state() private _viewMode: "satellite" | "schematic" = "satellite";
+  @state() private _entries: EntryInfo[] = [];
+  @state() private _selectedEntryId = "";
 
   static styles = [
     sharedStyles,
@@ -79,6 +81,38 @@ export class PropertyManagerPanel extends LitElement {
         color: var(--pm-text-secondary);
         padding: 0 8px;
       }
+
+      .menu-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 8px;
+        margin-right: 4px;
+        color: var(--pm-text);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+      }
+
+      .menu-btn:hover {
+        background: var(--pm-divider);
+      }
+
+      .menu-btn svg {
+        width: 24px;
+        height: 24px;
+      }
+
+      .property-select {
+        padding: 4px 8px;
+        border: 1px solid var(--pm-divider);
+        border-radius: 4px;
+        background: var(--pm-surface);
+        color: var(--pm-text);
+        font-size: 14px;
+        cursor: pointer;
+      }
     `,
   ];
 
@@ -87,11 +121,43 @@ export class PropertyManagerPanel extends LitElement {
     await this._loadData();
   }
 
+  private _entryParam(): string {
+    return this._selectedEntryId
+      ? `entry_id=${encodeURIComponent(this._selectedEntryId)}`
+      : "";
+  }
+
   private async _loadData(): Promise<void> {
     try {
       this._loading = true;
+
+      // Load entries list
+      const entries = await this.hass.callApi<EntryInfo[]>(
+        "GET",
+        "property_manager/entries"
+      );
+      this._entries = entries;
+
+      // Auto-select first entry if none selected or current is gone
+      if (
+        !this._selectedEntryId ||
+        !entries.find((e) => e.entry_id === this._selectedEntryId)
+      ) {
+        this._selectedEntryId = entries.length > 0 ? entries[0].entry_id : "";
+      }
+
+      if (!this._selectedEntryId) {
+        this._data = null;
+        this._categories = {};
+        return;
+      }
+
+      const ep = this._entryParam();
       const [data, categories] = await Promise.all([
-        this.hass.callApi<PropertyStore>("GET", "property_manager/data"),
+        this.hass.callApi<PropertyStore>(
+          "GET",
+          `property_manager/data${ep ? `?${ep}` : ""}`
+        ),
         this.hass.callApi<CategoryMap>("GET", "property_manager/categories"),
       ]);
       this._data = data;
@@ -101,6 +167,16 @@ export class PropertyManagerPanel extends LitElement {
     } finally {
       this._loading = false;
     }
+  }
+
+  private _toggleMenu() {
+    window.dispatchEvent(new CustomEvent("hass-toggle-menu"));
+  }
+
+  private _handleEntryChange(e: Event) {
+    this._selectedEntryId = (e.target as HTMLSelectElement).value;
+    this._selectedAsset = null;
+    this._loadData();
   }
 
   private _handleAssetSelect(e: CustomEvent<Asset>) {
@@ -116,7 +192,23 @@ export class PropertyManagerPanel extends LitElement {
   }
 
   private async _handleAssetCreated(e: CustomEvent) {
-    await this._loadData();
+    const { geometry } = e.detail;
+    try {
+      const ep = this._entryParam();
+      await this.hass.callApi(
+        "POST",
+        `property_manager/assets${ep ? `?${ep}` : ""}`,
+        {
+          name: "New Asset",
+          category: "custom",
+          geometry,
+          status: "active",
+        }
+      );
+      await this._loadData();
+    } catch (err) {
+      console.error("Failed to create asset:", err);
+    }
   }
 
   private async _handleAssetUpdated(e: CustomEvent) {
@@ -146,7 +238,38 @@ export class PropertyManagerPanel extends LitElement {
     return html`
       <div class="panel-container">
         <div class="toolbar">
+          ${this.narrow
+            ? html`<button
+                class="menu-btn"
+                @click=${this._toggleMenu}
+                aria-label="Toggle menu"
+              >
+                <svg viewBox="0 0 24 24">
+                  <path
+                    d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>`
+            : nothing}
           <h1>Property Manager</h1>
+          ${this._entries.length > 1
+            ? html`<select
+                class="property-select"
+                @change=${this._handleEntryChange}
+              >
+                ${this._entries.map(
+                  (entry) => html`
+                    <option
+                      value=${entry.entry_id}
+                      ?selected=${entry.entry_id === this._selectedEntryId}
+                    >
+                      ${entry.property_name}
+                    </option>
+                  `
+                )}
+              </select>`
+            : nothing}
           <span class="asset-count"
             >${assetCount} assets · ${zoneCount} zones</span
           >
@@ -179,6 +302,7 @@ export class PropertyManagerPanel extends LitElement {
                 .hass=${this.hass}
                 .asset=${this._selectedAsset}
                 .categories=${this._categories}
+                .entryId=${this._selectedEntryId}
                 @close=${this._handleCloseDetail}
                 @asset-updated=${this._handleAssetUpdated}
                 @asset-deleted=${this._handleAssetDeleted}

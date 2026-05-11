@@ -3,45 +3,27 @@
  *
  * Renders assets/zones on a Leaflet map with satellite (OSM) or
  * schematic (Canvas 2D overlay) view modes.
+ *
+ * Leaflet and Leaflet-draw are bundled via npm (not CDN) to avoid CSP issues.
+ * CSS is loaded via <link> tags pointing to locally-served copies.
  */
 import { LitElement, html, css, PropertyValues } from "lit";
 import { customElement, property, state, query } from "lit/decorators.js";
+import * as L from "leaflet";
 import type { PropertyStore, Asset, Zone, CategoryMap } from "./models";
 import { CATEGORY_COLORS } from "./styles";
 import { renderSchematic } from "./schematic-renderer";
 
-// Leaflet types — loaded dynamically at runtime
-declare const L: typeof import("leaflet");
+// Make L available globally for leaflet-draw (it mutates the L namespace)
+(window as any).L = L;
 
-const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-const LEAFLET_DRAW_CSS =
-  "https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css";
-const LEAFLET_DRAW_JS =
-  "https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js";
-
-/** Load a CSS file into the document head (idempotent). */
-function loadCSS(href: string): void {
-  if (document.querySelector(`link[href="${href}"]`)) return;
-  const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.href = href;
-  document.head.appendChild(link);
-}
-
-/** Load a JS script dynamically and return a promise. */
-function loadScript(src: string): Promise<void> {
-  if (document.querySelector(`script[src="${src}"]`)) {
-    return Promise.resolve();
-  }
-  return new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = src;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error(`Failed to load ${src}`));
-    document.head.appendChild(script);
-  });
-}
+// Fix default marker icon paths for bundled Leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "/property_manager/frontend/images/marker-icon-2x.png",
+  iconUrl: "/property_manager/frontend/images/marker-icon.png",
+  shadowUrl: "/property_manager/frontend/images/marker-shadow.png",
+});
 
 @customElement("pm-map-engine")
 export class MapEngine extends LitElement {
@@ -62,10 +44,37 @@ export class MapEngine extends LitElement {
   private _drawnItems: L.FeatureGroup | null = null;
   @state() private _leafletReady = false;
 
-  // Use light DOM so Leaflet CSS works properly
-  protected createRenderRoot() {
-    return this;
-  }
+  static styles = css`
+    :host {
+      display: block;
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+    #schematic-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 400;
+      display: none;
+    }
+    .map-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      color: #757575;
+      font-size: 16px;
+    }
+  `;
 
   protected async firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
@@ -85,31 +94,25 @@ export class MapEngine extends LitElement {
 
   private async _loadLeaflet(): Promise<void> {
     try {
-      // Load CSS first
-      loadCSS(LEAFLET_CSS);
-      loadCSS(LEAFLET_DRAW_CSS);
-
-      // Load Leaflet core, then draw plugin (depends on L)
-      await loadScript(LEAFLET_JS);
-      await loadScript(LEAFLET_DRAW_JS);
-
-      this._leafletReady = true;
-      this._initMap();
+      // Dynamically import leaflet-draw after L is on window
+      await import("leaflet-draw");
     } catch (err) {
-      console.error("Failed to load Leaflet:", err);
+      console.warn("Leaflet-draw failed to load, drawing disabled:", err);
     }
+
+    this._leafletReady = true;
+    await this.updateComplete;
+    this._initMap();
   }
 
   private _initMap() {
-    if (typeof L === "undefined") {
-      console.error("Leaflet not available after loading scripts.");
+    const mapEl = this._mapEl;
+    if (!mapEl) {
+      console.error("Map container #map not found in shadow DOM");
       return;
     }
 
-    const mapEl = this._mapEl;
-    if (!mapEl) return;
-
-    // Center on property location from config, fall back to HA home zone
+    // Center on property location from config
     const propLat = this.data?.property?.latitude;
     const propLng = this.data?.property?.longitude;
     const defaultCenter: [number, number] = [
@@ -400,40 +403,15 @@ export class MapEngine extends LitElement {
 
   render() {
     if (!this._leafletReady) {
-      return html`
-        <style>
-          .map-loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 100%;
-            color: #757575;
-            font-size: 16px;
-          }
-        </style>
-        <div class="map-loading">Loading map...</div>
-      `;
+      return html`<div class="map-loading">Loading map...</div>`;
     }
 
     return html`
-      <style>
-        #map {
-          width: 100%;
-          height: 100%;
-          position: relative;
-        }
-        #schematic-canvas {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          pointer-events: none;
-          z-index: 400;
-          display: none;
-        }
-      </style>
+      <link rel="stylesheet" href="/property_manager/frontend/leaflet.css" />
+      <link
+        rel="stylesheet"
+        href="/property_manager/frontend/leaflet.draw.css"
+      />
       <div id="map">
         <canvas id="schematic-canvas"></canvas>
       </div>

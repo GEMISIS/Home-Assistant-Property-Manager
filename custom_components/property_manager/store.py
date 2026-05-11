@@ -18,10 +18,11 @@ _LOGGER = logging.getLogger(__name__)
 class PropertyManagerStore:
     """Manage persistent storage for property data."""
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, entry_id: str = "") -> None:
         self._hass = hass
+        suffix = f".{entry_id}" if entry_id else ".data"
         self._store = Store[dict[str, Any]](
-            hass, STORAGE_VERSION, f"{STORAGE_KEY}.data"
+            hass, STORAGE_VERSION, f"{STORAGE_KEY}{suffix}"
         )
         self._data: PropertyStore = PropertyStore()
 

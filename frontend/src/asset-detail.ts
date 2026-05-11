@@ -12,6 +12,7 @@ export class AssetDetail extends LitElement {
   @property({ attribute: false }) hass: any;
   @property({ attribute: false }) asset!: Asset;
   @property({ attribute: false }) categories: CategoryMap = {};
+  @property({ type: String }) entryId = "";
 
   @state() private _editing = false;
   @state() private _editName = "";
@@ -210,12 +211,16 @@ export class AssetDetail extends LitElement {
     );
   }
 
+  private _ep(): string {
+    return this.entryId ? `?entry_id=${encodeURIComponent(this.entryId)}` : "";
+  }
+
   private async _markChecked() {
     const now = new Date().toISOString().split("T")[0];
     try {
       await this.hass.callApi(
         "POST",
-        `property_manager/assets/${this.asset.id}/maintenance`,
+        `property_manager/assets/${this.asset.id}/maintenance${this._ep()}`,
         { date: now, action: "Checked", notes: "" }
       );
       this.dispatchEvent(
@@ -246,7 +251,7 @@ export class AssetDetail extends LitElement {
     try {
       await this.hass.callApi(
         "PUT",
-        `property_manager/assets/${this.asset.id}`,
+        `property_manager/assets/${this.asset.id}${this._ep()}`,
         {
           name: this._editName,
           type: this._editType,
@@ -272,7 +277,7 @@ export class AssetDetail extends LitElement {
     try {
       await this.hass.callApi(
         "DELETE",
-        `property_manager/assets/${this.asset.id}`
+        `property_manager/assets/${this.asset.id}${this._ep()}`
       );
       this.dispatchEvent(
         new CustomEvent("asset-deleted", {
