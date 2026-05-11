@@ -9,12 +9,14 @@
  */
 import { LitElement, html, css, PropertyValues } from "lit";
 import { customElement, property, state, query } from "lit/decorators.js";
-import * as L from "leaflet";
+import * as _L from "leaflet";
 import type { PropertyStore, Asset, Zone, CategoryMap } from "./models";
 import { CATEGORY_COLORS } from "./styles";
 import { renderSchematic } from "./schematic-renderer";
 
-// Make L available globally for leaflet-draw (it mutates the L namespace)
+// leaflet-draw needs a mutable global L object (module namespace is frozen).
+// Spread into a plain object so leaflet-draw can add properties like drawVersion.
+const L: any = { ..._L };
 (window as any).L = L;
 
 // Fix default marker icon paths for bundled Leaflet
@@ -86,6 +88,14 @@ export class MapEngine extends LitElement {
 
     if (changedProps.has("data") && this._map) {
       this._renderData();
+      // Re-center map when data first arrives with location
+      const prev = changedProps.get("data") as PropertyStore | null | undefined;
+      if (!prev?.property?.latitude && this.data?.property?.latitude) {
+        this._map.setView(
+          [this.data.property.latitude!, this.data.property.longitude!],
+          18
+        );
+      }
     }
     if (changedProps.has("viewMode") && this._map) {
       this._updateViewMode();

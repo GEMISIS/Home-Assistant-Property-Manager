@@ -116,9 +116,15 @@ export class PropertyManagerPanel extends LitElement {
     `,
   ];
 
-  protected async firstUpdated(_changedProperties: PropertyValues) {
-    super.firstUpdated(_changedProperties);
-    await this._loadData();
+  private _initialized = false;
+
+  protected updated(changedProperties: PropertyValues) {
+    super.updated(changedProperties);
+    // Load data once hass becomes available (it's set after element creation)
+    if (!this._initialized && this.hass) {
+      this._initialized = true;
+      this._loadData();
+    }
   }
 
   private _entryParam(): string {
