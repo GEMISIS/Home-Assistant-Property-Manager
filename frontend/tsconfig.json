@@ -10,7 +10,7 @@
     "noUnusedParameters": false,
     "declaration": false,
     "sourceMap": true,
-    "outDir": "./dist",
+    "outDir": "../custom_components/property_manager/frontend",
     "rootDir": "./src",
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
