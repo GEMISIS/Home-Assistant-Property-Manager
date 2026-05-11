@@ -60,20 +60,30 @@ export class PropertyManagerPanel extends LitElement {
         border: 1px solid var(--pm-divider);
         border-radius: 4px;
         overflow: hidden;
+        flex-shrink: 0;
       }
 
       .view-toggle button {
-        padding: 6px 12px;
+        padding: 6px 10px;
         border: none;
         background: var(--pm-surface);
         color: var(--pm-text);
         cursor: pointer;
         font-size: 13px;
+        white-space: nowrap;
       }
 
       .view-toggle button.active {
         background: var(--pm-primary);
         color: white;
+      }
+
+      /* Abbreviate on small screens */
+      @media (max-width: 480px) {
+        .view-toggle button {
+          padding: 6px 8px;
+          font-size: 12px;
+        }
       }
 
       .asset-count {
@@ -176,6 +186,10 @@ export class PropertyManagerPanel extends LitElement {
   }
 
   private _toggleMenu() {
+    // HA listens for this event on the window, bubbled from the panel
+    const evt = new Event("hass-toggle-menu", { bubbles: true, composed: true });
+    this.dispatchEvent(evt);
+    // Also fire on window as fallback
     window.dispatchEvent(new CustomEvent("hass-toggle-menu"));
   }
 
@@ -284,13 +298,13 @@ export class PropertyManagerPanel extends LitElement {
               class=${this._viewMode === "satellite" ? "active" : ""}
               @click=${() => this._handleViewToggle("satellite")}
             >
-              Satellite
+              🛰 Map
             </button>
             <button
               class=${this._viewMode === "schematic" ? "active" : ""}
               @click=${() => this._handleViewToggle("schematic")}
             >
-              Schematic
+              📐 Plan
             </button>
           </div>
         </div>

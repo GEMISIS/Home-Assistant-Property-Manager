@@ -78,9 +78,20 @@ export class MapEngine extends LitElement {
     }
   `;
 
+  private _resizeObserver: ResizeObserver | null = null;
+
   protected async firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
     await this._loadLeaflet();
+
+    // Handle rotation / resize — tell Leaflet to recalculate
+    this._resizeObserver = new ResizeObserver(() => {
+      if (this._map) {
+        this._map.invalidateSize({ animate: false });
+      }
+    });
+    const mapEl = this.shadowRoot?.querySelector('#map');
+    if (mapEl) this._resizeObserver.observe(mapEl);
   }
 
   protected updated(changedProps: PropertyValues) {
@@ -152,17 +163,29 @@ export class MapEngine extends LitElement {
 
     // Initialize Leaflet.Draw if available
     if ((L as any).Control?.Draw) {
+      const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       this._drawControl = new (L as any).Control.Draw({
         edit: { featureGroup: this._drawnItems },
         draw: {
-          polygon: true,
-          polyline: true,
+          polygon: { showArea: true, allowIntersection: false, shapeOptions: { weight: 3 }, touchIcon: isMobile },
+          polyline: { shapeOptions: { weight: 3 } },
           marker: true,
           circle: false,
           rectangle: false,
           circlemarker: false,
         },
       });
+      // Disable draw guide tooltips on mobile (they cover controls)
+      if (isMobile && (L as any).drawLocal?.draw?.handlers) {
+        const handlers = (L as any).drawLocal.draw.handlers;
+        for (const key of Object.keys(handlers)) {
+          if (handlers[key]?.tooltip) {
+            handlers[key].tooltip.start = '';
+            handlers[key].tooltip.cont = '';
+            handlers[key].tooltip.end = '';
+          }
+        }
+      }
       this._map.addControl(this._drawControl);
 
       this._map.on("draw:created" as any, (e: any) => {
@@ -216,6 +239,8 @@ export class MapEngine extends LitElement {
     }
   }
 
+    private _hasFittedBounds = false;
+
   private _renderData() {
     if (!this._map || !this.data) return;
 
@@ -241,10 +266,13 @@ export class MapEngine extends LitElement {
         dashArray: "10, 5",
       }).addTo(this._map);
 
-      // Fit map to boundary
-      this._map.fitBounds(this._boundaryLayer.getBounds(), {
-        padding: [20, 20],
-      });
+      // Only fit bounds on first load — don't jump map on data refresh
+      if (!this._hasFittedBounds) {
+        this._hasFittedBounds = true;
+        this._map.fitBounds(this._boundaryLayer.getBounds(), {
+          padding: [20, 20],
+        });
+      }
     }
 
     // Render zones
@@ -304,7 +332,7 @@ export class MapEngine extends LitElement {
         return;
     }
 
-    layer.bindTooltip(asset.name, { direction: "top", offset: [0, -10] });
+    layer.bindTooltip(asset.name, { direction: "top", offset: [0, -10], permanent: false });
 
     layer.on("click", () => {
       this.dispatchEvent(
@@ -405,6 +433,10 @@ export class MapEngine extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+      this._resizeObserver = null;
+    }
     if (this._map) {
       this._map.remove();
       this._map = null;
@@ -422,6 +454,19 @@ export class MapEngine extends LitElement {
         rel="stylesheet"
         href="/property_manager/frontend/leaflet.draw.css"
       />
+      <style>
+        /* Mobile-friendly draw controls */
+        @media (max-width: 768px), (pointer: coarse) {
+          .leaflet-draw-toolbar a {
+            width: 36px !important;
+            height: 36px !important;
+            line-height: 36px !important;
+          }
+          .leaflet-draw-tooltip {
+            display: none !important;
+          }
+        }
+      </style>
       <div id="map">
         <canvas id="schematic-canvas"></canvas>
       </div>

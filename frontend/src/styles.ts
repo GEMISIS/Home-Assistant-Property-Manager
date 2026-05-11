@@ -52,29 +52,50 @@ export const sharedStyles = css`
     flex-direction: column;
     height: 100%;
     background: var(--pm-bg);
+    position: relative;
+    z-index: 0;
   }
 
   .toolbar {
     display: flex;
     align-items: center;
-    padding: 0 16px;
+    padding: 0 8px;
     height: 56px;
+    min-height: 56px;
     background: var(--pm-surface);
     border-bottom: 1px solid var(--pm-divider);
-    gap: 8px;
+    gap: 4px;
+    overflow: hidden;
+    z-index: 1;
   }
 
   .toolbar h1 {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 400;
     margin: 0;
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     color: var(--pm-text);
+  }
+
+  /* Hide asset count on narrow screens */
+  @media (max-width: 480px) {
+    .toolbar .asset-count {
+      display: none;
+    }
+    .toolbar h1 {
+      font-size: 16px;
+    }
   }
 
   .map-container {
     flex: 1;
     position: relative;
+    z-index: 0;
+    overflow: hidden;
   }
 
   .toolbar-button {
