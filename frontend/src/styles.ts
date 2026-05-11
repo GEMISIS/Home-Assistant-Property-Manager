@@ -52,8 +52,10 @@ export const sharedStyles = css`
     flex-direction: column;
     height: 100%;
     background: var(--pm-bg);
+    /* Do NOT set z-index here — it creates a stacking context that
+       can trap Leaflet's high z-indexes and cover HA's sidebar.
+       Let the panel flow naturally in the DOM stacking order. */
     position: relative;
-    z-index: 0;
   }
 
   .toolbar {
@@ -94,7 +96,9 @@ export const sharedStyles = css`
   .map-container {
     flex: 1;
     position: relative;
-    z-index: 0;
+    /* Contain Leaflet's z-indexes within this element so they don't
+       bleed out and cover HA's sidebar overlay */
+    isolation: isolate;
     overflow: hidden;
   }
 

@@ -66,8 +66,10 @@ function ft(t,e){return(e,i,o)=>((t,e,i)=>(i.configurable=!0,i.enumerable=!0,Ref
     flex-direction: column;
     height: 100%;
     background: var(--pm-bg);
+    /* Do NOT set z-index here — it creates a stacking context that
+       can trap Leaflet's high z-indexes and cover HA's sidebar.
+       Let the panel flow naturally in the DOM stacking order. */
     position: relative;
-    z-index: 0;
   }
 
   .toolbar {
@@ -108,7 +110,9 @@ function ft(t,e){return(e,i,o)=>((t,e,i)=>(i.configurable=!0,i.enumerable=!0,Ref
   .map-container {
     flex: 1;
     position: relative;
-    z-index: 0;
+    /* Contain Leaflet's z-indexes within this element so they don't
+       bleed out and cover HA's sidebar overlay */
+    isolation: isolate;
     overflow: hidden;
   }
 
@@ -629,23 +633,15 @@ function ft(t,e){return(e,i,o)=>((t,e,i)=>(i.configurable=!0,i.enumerable=!0,Ref
       font-weight: 500;
       cursor: pointer;
     }
-  `,e([_t({attribute:!1})],St.prototype,"hass",void 0),e([mt()],St.prototype,"_config",void 0),e([mt()],St.prototype,"_data",void 0),St=e([dt("property-manager-card")],St),window.customCards=window.customCards||[],window.customCards.push({type:"property-manager-card",name:"Property Manager",description:"Summary card for Property Manager — shows assets and attention items."});let Dt=class extends lt{constructor(){super(...arguments),this.narrow=!1,this._data=null,this._categories={},this._selectedAsset=null,this._loading=!0,this._viewMode="satellite",this._entries=[],this._selectedEntryId="",this._initialized=!1}updated(t){super.updated(t),!this._initialized&&this.hass&&(this._initialized=!0,this._loadData())}_entryParam(){return this._selectedEntryId?`entry_id=${encodeURIComponent(this._selectedEntryId)}`:""}async _loadData(){try{this._loading=!0;const t=await this.hass.callApi("GET","property_manager/entries");if(this._entries=t,this._selectedEntryId&&t.find(t=>t.entry_id===this._selectedEntryId)||(this._selectedEntryId=t.length>0?t[0].entry_id:""),!this._selectedEntryId)return this._data=null,void(this._categories={});const e=this._entryParam(),[i,o]=await Promise.all([this.hass.callApi("GET","property_manager/data"+(e?`?${e}`:"")),this.hass.callApi("GET","property_manager/categories")]);this._data=i,this._categories=o}catch(t){console.error("Failed to load property data:",t)}finally{this._loading=!1}}_toggleMenu(){const t=new Event("hass-toggle-menu",{bubbles:!0,composed:!0});this.dispatchEvent(t),window.dispatchEvent(new CustomEvent("hass-toggle-menu"))}_handleEntryChange(t){this._selectedEntryId=t.target.value,this._selectedAsset=null,this._loadData()}_handleAssetSelect(t){this._selectedAsset=t.detail}_handleCloseDetail(){this._selectedAsset=null}_handleViewToggle(t){this._viewMode=t}async _handleAssetCreated(t){const{geometry:e}=t.detail;try{const t=this._entryParam();await this.hass.callApi("POST","property_manager/assets"+(t?`?${t}`:""),{name:"New Asset",category:"custom",geometry:e,status:"active"}),await this._loadData()}catch(t){console.error("Failed to create asset:",t)}}async _handleAssetUpdated(t){await this._loadData(),this._selectedAsset&&this._data&&(this._selectedAsset=this._data.assets.find(t=>t.id===this._selectedAsset.id)??null)}async _handleAssetDeleted(t){this._selectedAsset=null,await this._loadData()}render(){if(this._loading)return G`<div class="panel-container">
+  `,e([_t({attribute:!1})],St.prototype,"hass",void 0),e([mt()],St.prototype,"_config",void 0),e([mt()],St.prototype,"_data",void 0),St=e([dt("property-manager-card")],St),window.customCards=window.customCards||[],window.customCards.push({type:"property-manager-card",name:"Property Manager",description:"Summary card for Property Manager — shows assets and attention items."});let Dt=class extends lt{constructor(){super(...arguments),this.narrow=!1,this._data=null,this._categories={},this._selectedAsset=null,this._loading=!0,this._viewMode="satellite",this._entries=[],this._selectedEntryId="",this._initialized=!1}updated(t){super.updated(t),!this._initialized&&this.hass&&(this._initialized=!0,this._loadData())}_entryParam(){return this._selectedEntryId?`entry_id=${encodeURIComponent(this._selectedEntryId)}`:""}async _loadData(){try{this._loading=!0;const t=await this.hass.callApi("GET","property_manager/entries");if(this._entries=t,this._selectedEntryId&&t.find(t=>t.entry_id===this._selectedEntryId)||(this._selectedEntryId=t.length>0?t[0].entry_id:""),!this._selectedEntryId)return this._data=null,void(this._categories={});const e=this._entryParam(),[i,o]=await Promise.all([this.hass.callApi("GET","property_manager/data"+(e?`?${e}`:"")),this.hass.callApi("GET","property_manager/categories")]);this._data=i,this._categories=o}catch(t){console.error("Failed to load property data:",t)}finally{this._loading=!1}}_toggleMenu(){this.dispatchEvent(new CustomEvent("hass-toggle-menu",{bubbles:!0,composed:!0}))}_handleEntryChange(t){this._selectedEntryId=t.target.value,this._selectedAsset=null,this._loadData()}_handleAssetSelect(t){this._selectedAsset=t.detail}_handleCloseDetail(){this._selectedAsset=null}_handleViewToggle(t){this._viewMode=t}async _handleAssetCreated(t){const{geometry:e}=t.detail;try{const t=this._entryParam();await this.hass.callApi("POST","property_manager/assets"+(t?`?${t}`:""),{name:"New Asset",category:"custom",geometry:e,status:"active"}),await this._loadData()}catch(t){console.error("Failed to create asset:",t)}}async _handleAssetUpdated(t){await this._loadData(),this._selectedAsset&&this._data&&(this._selectedAsset=this._data.assets.find(t=>t.id===this._selectedAsset.id)??null)}async _handleAssetDeleted(t){this._selectedAsset=null,await this._loadData()}render(){if(this._loading)return G`<div class="panel-container">
         <div class="loading">Loading Property Manager...</div>
       </div>`;const t=this._data?.assets.length??0,e=this._data?.zones.length??0;return G`
       <div class="panel-container">
         <div class="toolbar">
-          ${this.narrow?G`<button
-                class="menu-btn"
-                @click=${this._toggleMenu}
-                aria-label="Toggle menu"
-              >
-                <svg viewBox="0 0 24 24">
-                  <path
-                    d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"
-                    fill="currentColor"
-                  />
-                </svg>
-              </button>`:V}
+          ${this.narrow?G`<ha-menu-button
+                .hass=${this.hass}
+                .narrow=${this.narrow}
+              ></ha-menu-button>`:V}
           <h1>Property Manager</h1>
           ${this._entries.length>1?G`<select
                 class="property-select"
@@ -745,26 +741,8 @@ function ft(t,e){return(e,i,o)=>((t,e,i)=>(i.configurable=!0,i.enumerable=!0,Ref
         padding: 0 8px;
       }
 
-      .menu-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 8px;
-        margin-right: 4px;
-        color: var(--pm-text);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-      }
-
-      .menu-btn:hover {
-        background: var(--pm-divider);
-      }
-
-      .menu-btn svg {
-        width: 24px;
-        height: 24px;
+      ha-menu-button {
+        flex-shrink: 0;
       }
 
       .property-select {

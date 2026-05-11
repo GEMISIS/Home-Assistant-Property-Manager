@@ -92,26 +92,8 @@ export class PropertyManagerPanel extends LitElement {
         padding: 0 8px;
       }
 
-      .menu-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 8px;
-        margin-right: 4px;
-        color: var(--pm-text);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-      }
-
-      .menu-btn:hover {
-        background: var(--pm-divider);
-      }
-
-      .menu-btn svg {
-        width: 24px;
-        height: 24px;
+      ha-menu-button {
+        flex-shrink: 0;
       }
 
       .property-select {
@@ -186,11 +168,13 @@ export class PropertyManagerPanel extends LitElement {
   }
 
   private _toggleMenu() {
-    // HA listens for this event on the window, bubbled from the panel
-    const evt = new Event("hass-toggle-menu", { bubbles: true, composed: true });
-    this.dispatchEvent(evt);
-    // Also fire on window as fallback
-    window.dispatchEvent(new CustomEvent("hass-toggle-menu"));
+    // Use HA's fireEvent pattern — must bubble and compose through shadow DOM
+    this.dispatchEvent(
+      new CustomEvent("hass-toggle-menu", {
+        bubbles: true,
+        composed: true,
+      })
+    );
   }
 
   private _handleEntryChange(e: Event) {
@@ -259,18 +243,10 @@ export class PropertyManagerPanel extends LitElement {
       <div class="panel-container">
         <div class="toolbar">
           ${this.narrow
-            ? html`<button
-                class="menu-btn"
-                @click=${this._toggleMenu}
-                aria-label="Toggle menu"
-              >
-                <svg viewBox="0 0 24 24">
-                  <path
-                    d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"
-                    fill="currentColor"
-                  />
-                </svg>
-              </button>`
+            ? html`<ha-menu-button
+                .hass=${this.hass}
+                .narrow=${this.narrow}
+              ></ha-menu-button>`
             : nothing}
           <h1>Property Manager</h1>
           ${this._entries.length > 1
