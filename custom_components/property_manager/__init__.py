@@ -43,7 +43,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         [StaticPathConfig("/property_manager/frontend", frontend_dir, cache_headers=False)]
     )
 
-    hass.components.frontend.async_register_built_in_panel(
+    from homeassistant.components.frontend import async_register_built_in_panel
+
+    async_register_built_in_panel(
+        hass,
         component_name="custom",
         sidebar_title="Property Map",
         sidebar_icon="mdi:map-marker-radius",
