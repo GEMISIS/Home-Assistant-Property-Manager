@@ -109,8 +109,13 @@ export class MapEngine extends LitElement {
     const mapEl = this._mapEl;
     if (!mapEl) return;
 
-    // Default center — will be overridden if property boundary exists
-    const defaultCenter: [number, number] = [47.6062, -122.3321];
+    // Center on property location from config, fall back to HA home zone
+    const propLat = this.data?.property?.latitude;
+    const propLng = this.data?.property?.longitude;
+    const defaultCenter: [number, number] = [
+      propLat ?? 47.6062,
+      propLng ?? -122.3321,
+    ];
     const defaultZoom = 18;
 
     this._map = L.map(mapEl, {

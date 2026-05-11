@@ -26,6 +26,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     store = PropertyManagerStore(hass)
     await store.async_load()
 
+    # Populate property with config entry data on first setup
+    if not store.data.property.latitude:
+        store.data.property.name = entry.data.get("property_name", "Home")
+        store.data.property.address = entry.data.get("address", "")
+        store.data.property.latitude = entry.data.get("latitude")
+        store.data.property.longitude = entry.data.get("longitude")
+        await store.async_save()
+
     coordinator = PropertyManagerCoordinator(hass, store)
     await coordinator.async_config_entry_first_refresh()
 
@@ -43,7 +51,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         [StaticPathConfig("/property_manager/frontend", frontend_dir, cache_headers=False)]
     )
 
-    from homeassistant.components.frontend import async_register_built_in_panel
+    from homeassistant.components.frontend import (
+        async_register_built_in_panel,
+        async_remove_panel,
+    )
+
+    # Remove existing panel if re-loading (prevents "Overwriting panel" error)
+    try:
+        async_remove_panel(hass, "property-manager")
+    except (ValueError, KeyError):
+        pass  # Panel doesn't exist yet, that's fine
 
     async_register_built_in_panel(
         hass,

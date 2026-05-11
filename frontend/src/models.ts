@@ -64,6 +64,8 @@ export interface Property {
   calibration: Calibration;
   address: string;
   timezone: string;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface PropertyStore {

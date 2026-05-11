@@ -3,10 +3,11 @@
     "step": {
       "user": {
         "title": "Set Up Property Manager",
-        "description": "Configure your property for the interactive map.",
+        "description": "Configure your property for the interactive map. The location defaults to your Home Assistant home zone.",
         "data": {
           "property_name": "Property Name",
-          "address": "Address (optional)"
+          "address": "Street Address (optional)",
+          "location": "Property Location"
         }
       }
     },

@@ -232,6 +232,8 @@ class Property:
     calibration: Calibration = field(default_factory=Calibration)
     address: str = ""
     timezone: str = ""
+    latitude: float | None = None
+    longitude: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -240,6 +242,8 @@ class Property:
             "calibration": self.calibration.to_dict(),
             "address": self.address,
             "timezone": self.timezone,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
         }
 
     @classmethod
@@ -250,6 +254,8 @@ class Property:
             calibration=Calibration.from_dict(data.get("calibration", {})),
             address=data.get("address", ""),
             timezone=data.get("timezone", ""),
+            latitude=data.get("latitude"),
+            longitude=data.get("longitude"),
         )
 
 

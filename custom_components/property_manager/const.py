@@ -8,6 +8,8 @@ STORAGE_VERSION = 1
 
 CONF_PROPERTY_NAME = "property_name"
 CONF_ADDRESS = "address"
+CONF_LATITUDE = "latitude"
+CONF_LONGITUDE = "longitude"
 
 # Asset geometry types
 GEOMETRY_POINT = "Point"

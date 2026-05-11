@@ -6,8 +6,15 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.helpers.selector import (
+    LocationSelector,
+    LocationSelectorConfig,
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 
-from .const import CONF_ADDRESS, CONF_PROPERTY_NAME, DOMAIN
+from .const import CONF_ADDRESS, CONF_PROPERTY_NAME, CONF_LATITUDE, CONF_LONGITUDE, DOMAIN
 
 
 class PropertyManagerConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -26,17 +33,42 @@ class PropertyManagerConfigFlow(ConfigFlow, domain=DOMAIN):
             await self.async_set_unique_id(DOMAIN)
             self._abort_if_unique_id_configured()
 
+            # Extract location from the location selector
+            location = user_input.get("location", {})
+            entry_data = {
+                CONF_PROPERTY_NAME: user_input[CONF_PROPERTY_NAME],
+                CONF_ADDRESS: user_input.get(CONF_ADDRESS, ""),
+                CONF_LATITUDE: location.get("latitude", self.hass.config.latitude),
+                CONF_LONGITUDE: location.get("longitude", self.hass.config.longitude),
+            }
+
             return self.async_create_entry(
-                title=user_input[CONF_PROPERTY_NAME],
-                data=user_input,
+                title=entry_data[CONF_PROPERTY_NAME],
+                data=entry_data,
             )
+
+        # Default to HA's configured home location
+        default_lat = self.hass.config.latitude
+        default_lng = self.hass.config.longitude
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_PROPERTY_NAME, default="Home"): str,
-                    vol.Optional(CONF_ADDRESS, default=""): str,
+                    vol.Required(CONF_PROPERTY_NAME, default="Home"): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.TEXT)
+                    ),
+                    vol.Optional(CONF_ADDRESS, default=""): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.TEXT)
+                    ),
+                    vol.Optional(
+                        "location",
+                        default={
+                            "latitude": default_lat,
+                            "longitude": default_lng,
+                            "radius": 50,
+                        },
+                    ): LocationSelector(LocationSelectorConfig(radius=True)),
                 }
             ),
             errors=errors,
